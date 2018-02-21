@@ -1,110 +1,144 @@
+// Copyright 2005-2006 University of Wisconsin
+// Copyright 2011 Portland State University
+// All rights reserved. 
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Contributors:
+//   James Domingo, UW-Madison, Forest Landscape Ecology Lab
+//   Srinivas S., Portland State University
+
 using Edu.Wisc.Forest.Flel.Util;
-using log4net;
 using System;
-using System.Configuration;
-using System.IO;
 using System.Reflection;
 using System.Text;
 
-using Landis.Core;
-using Landis.Landscapes;
-using Landis.RasterIO.Gdal;
-using Landis.SpatialModeling;
-
-namespace Landis
+namespace Landis.Extensions.Admin
 {
     public static class App
     {
+        public static bool InstallingExtension = false;
+
+        //---------------------------------------------------------------------
+
         public static int Main(string[] args)
         {
             try {
-                // The log4net section in the application's configuration file
-                // requires the environment variable WORKING_DIR be set to the
-                // current working directory.
-                Environment.SetEnvironmentVariable("WORKING_DIR", Environment.CurrentDirectory);
-                log4net.Config.XmlConfigurator.Configure();
+                Assembly coreAssembly = Assembly.GetAssembly(typeof(Landis.Core.ICore));
+                Version coreVersion = coreAssembly.GetName().Version;
+                Console.WriteLine("LANDIS-II {0}.{1}", coreVersion.Major, coreVersion.Minor);
+                
+                Assembly myAssembly = Assembly.GetExecutingAssembly();
+                Version toolVersion = myAssembly.GetName().Version;
+                Console.WriteLine("Extensions Administration Tool {0}.{1}", toolVersion.Major, toolVersion.Minor);
 
-                ConsoleInterface ci = new ConsoleInterface();
+                Console.WriteLine("Copyright 2005-2006 University of Wisconsin");
+                Console.WriteLine("Copyright 2011 Portland State University");
+                Console.WriteLine();
 
-                ci.TextWriter = Console.Out;
-
-                string version = GetAppSetting("version");
-                if (version == "")
-                    throw new Exception("The application setting \"version\" is empty or blank");
-                string release = GetAppSetting("release");
-                if (release != "")
-                    release = string.Format(" ({0})", release);
-                ci.WriteLine("LANDIS-II {0}{1}", version, release);
-
-                Assembly assembly = Assembly.GetExecutingAssembly();
-                foreach (object attribute in assembly.GetCustomAttributes(typeof(AssemblyCopyrightAttribute), false))
-                    ci.WriteLine(((AssemblyCopyrightAttribute) attribute).Copyright);
-                ci.WriteLine();
-
-                if (args.Length == 0) {
-                    ci.WriteLine("Error: No scenario file specified.");
-                    return 1;
-                }
-                if (args.Length > 1) {
-                    ci.WriteLine("Error: Extra argument(s) on command line:");
-                    StringBuilder argsList = new StringBuilder();
-                    argsList.Append(" ");
-                    for (int i = 1; i < args.Length; ++i)
-                        argsList.AppendFormat(" {0}", args[i]);
-                    ci.WriteLine(argsList.ToString());
-                    return 1;
-                }
-
-                //Warn if user's computer is not using United States number format
-                string decimal_separator = System.Globalization.CultureInfo.CurrentCulture.NumberFormat.NumberDecimalSeparator;
-                string period = ".";
-                if (decimal_separator != period)
-                {
-                    ci.WriteLine("Warning: The decimal separator of your system is '" + decimal_separator + "'. Most LANDIS-II");
-                    ci.WriteLine("Warning: scenario files use '" + period + "' for the decimal separator. The scenario");
-                    ci.WriteLine("Warning: files may not run or your results could be inaccurate.");
-                    ci.WriteLine();
-                }
-
-                IExtensionDataset extensions = Landis.Extensions.Dataset.LoadOrCreate();
-                //Pre-pending the GDAL directory is required to run the Console project in debug mode
-                //string path = Environment.GetEnvironmentVariable("PATH");
-                //string newPath = "C:\\Program Files\\LANDIS-II\\GDAL\\1.9;" + path;
-                //Environment.SetEnvironmentVariable("PATH", newPath);
-                RasterFactory rasterFactory = new RasterFactory();
-                LandscapeFactory landscapeFactory = new LandscapeFactory();
-                Model model = new Model(extensions, rasterFactory, landscapeFactory);
-                model.Run(args[0], ci);
+                ICommand command = ParseArgs(args);
+                InstallingExtension = command is InstallCommand;
+                if (command != null)
+                    command.Execute();
                 return 0;
             }
             catch (ApplicationException exc) {
-                ConsoleInterface ci = new ConsoleInterface();
-                ci.WriteLine(exc.Message);
+                Console.WriteLine(exc.Message);
                 return 1;
             }
             catch (Exception exc) {
-
-                ConsoleInterface ci = new ConsoleInterface();
-                ci.WriteLine("Internal error occurred within the program:");
-                ci.WriteLine("  {0}", exc.Message);
+                Console.WriteLine("Internal error occurred within the program:");
+                Console.WriteLine("  {0}", exc.Message);
                 if (exc.InnerException != null) {
-                    ci.WriteLine("  {0}", exc.InnerException.Message);
+                    Console.WriteLine("  {0}", exc.InnerException.Message);
                 }
-                ci.WriteLine();
-                ci.WriteLine("Stack trace:");
-                ci.WriteLine(exc.StackTrace);
+                Console.WriteLine();
+                Console.WriteLine("Stack trace:");
+                Console.WriteLine(exc.StackTrace);
                 return 1;
             }
         }
 
         //---------------------------------------------------------------------
 
-        public static string GetAppSetting(string settingName)
+        /// <summary>
+        /// Parses the arguments passed to the program on the command line.
+        /// </summary>
+        /// <returns>
+        /// A ICommand object which will perform the command (action) specified
+        /// by the arguments.
+        /// </returns>
+        private static ICommand ParseArgs(string[] args)
         {
-            string setting = ConfigurationManager.AppSettings[settingName];
-            if (setting == null)
-                throw new Exception("The application setting \"" + settingName + "\" is not set");
-            return setting.Trim(null);
+            if (args.Length == 0)
+                return new ListBriefCommand();
+
+            if (args[0] == "list") {
+                if (args.Length > 1)
+                    throw ExtraArgsException(args, 1);
+                return new ListCommand();
+            }
+
+            if (args[0] == "add") {
+                if (args.Length == 1)
+                    throw UsageException("No filename for \"add\" command");
+                if (args.Length > 2)
+                    throw ExtraArgsException(args, 2);
+                return new AddCommand(args[1]);
+            }
+
+            if (args[0] == "remove") {
+                if (args.Length == 1)
+                    throw UsageException("No extension name for \"remove\" command");
+                if (args.Length > 2)
+                    throw ExtraArgsException(args, 2);
+                return new RemoveCommand(args[1]);
+            }
+
+            throw UsageException("Unknown argument: {0} -- expected one of these: list, add, remove", args[0]);
+        }
+
+        //---------------------------------------------------------------------
+
+        private static MultiLineException UsageException(string          message,
+                                                         params object[] mesgArgs)
+        {
+            string[] lines = { 
+                "Error with arguments on command line:",
+                "  " + string.Format(message, mesgArgs),
+                "",
+                "Usage:",
+                "  landis-extensions", 
+                "  landis-extensions list", 
+                "  landis-extensions add {extension-info-file}",
+                "  landis-extensions remove {extension-name}"
+            };
+            return new MultiLineException(lines);
+        }
+
+        //---------------------------------------------------------------------
+
+        private static MultiLineException ExtraArgsException(string[] args,
+                                                             int      firstExtraArgIndex)
+        {
+            StringBuilder message = new StringBuilder();
+            if (firstExtraArgIndex == args.Length - 1)
+                message.Append("Extra argument:");
+            else
+                message.Append("Extra arguments:");
+            for (int i = firstExtraArgIndex; i < args.Length; ++i)
+                message.AppendFormat(" {0}", args[i]);
+            return UsageException(message.ToString());
         }
     }
 }
