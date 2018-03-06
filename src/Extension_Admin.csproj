@@ -6,14 +6,14 @@
     <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <OutputPath>..\build\Debug</OutputPath>
+    <OutputPath>..\..\build\Debug</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <OutputPath>..\build\Release</OutputPath>
+    <OutputPath>..\..\build\Release</OutputPath>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Edu.Wisc.Forest.Flel.Util">
-      <HintPath>../core/src/lib/Edu.Wisc.Forest.Flel.Util.dll</HintPath>
+      <HintPath>../lib/Edu.Wisc.Forest.Flel.Util.dll</HintPath>
     </Reference>
 
     <PackageReference Include="System.Runtime.InteropServices" Version="4.3.0" />
@@ -24,7 +24,7 @@
     <PackageReference Include="System.Net.NameResolution" Version="4.3.0" />
     <PackageReference Include="System.Net.Primitives" Version="4.3.0" />
 
-    <ProjectReference Include="..\ext-dataset\src\Extension_Dataset.csproj" />
+    <ProjectReference Include="..\..\landis-core-model\model\ext-dataset\src\Extension_Dataset.csproj" />
     <PackageReference Include="Landis.SpatialModeling" Version="1.0.0-CI00003" />
   </ItemGroup>
 </Project>
