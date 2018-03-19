@@ -24,7 +24,7 @@
     <PackageReference Include="System.Net.NameResolution" Version="4.3.0" />
     <PackageReference Include="System.Net.Primitives" Version="4.3.0" />
 
-    <ProjectReference Include="..\..\landis-core-model\model\ext-dataset\src\Extension_Dataset.csproj" />
     <PackageReference Include="Landis.SpatialModeling" Version="1.0.0-CI00003" />
+    <PackageReference Include="Landis.Extensions.Dataset" Version="1.0.0-CI00029" />
   </ItemGroup>
 </Project>
